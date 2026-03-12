@@ -85,10 +85,11 @@ def run_step_sql_request(runner: HttpRunner, step: TStep) -> StepResult:
             f"?charset=utf8mb4"
         )
 
-    # parsed_request_dict["headers"].setdefault(
-    #     "HRUN-Request-ID",
-    #     f"HRUN-{self.__case_id}-{str(int(time.time() * 1000))[-6:]}",
-    # )
+    # if runner.config.add_request_id:
+    #   parsed_request_dict["headers"].setdefault(
+    #       "HRUN-Request-ID",
+    #       f"HRUN-{self.__case_id}-{str(int(time.time() * 1000))[-6:]}",
+    #   )
 
     # setup hooks
     if step.setup_hooks:

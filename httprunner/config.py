@@ -94,6 +94,7 @@ class Config(object):
         self.__base_url: Text = ""
         self.__variables: VariablesMapping = {}
         self.__config = TConfig(name=name, path=caller_frame.filename)
+        self.__add_request_id = True
 
     @property
     def name(self) -> Text:
@@ -113,6 +114,10 @@ class Config(object):
 
     def verify(self, verify: bool) -> "Config":
         self.__config.verify = verify
+        return self
+
+    def add_request_id(self, add_request_id: bool) -> "Config":
+        self.__config.add_request_id = add_request_id
         return self
 
     def export(self, *export_var_name: Text) -> "Config":
