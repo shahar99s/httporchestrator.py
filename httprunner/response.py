@@ -189,10 +189,9 @@ class ResponseObjectBase(object):
             check_item = u_validator["check"]
             # Only parse and jmespath-search if check_item is a string
             if isinstance(check_item, str) and "$" in check_item:
-                check_item = self.parser.parse_data(check_item, variables_mapping)
-                check_item = parse_string_value(check_item)
-
-            if isinstance(check_item, str) and check_item:
+                check_value = self.parser.parse_data(check_item, variables_mapping)
+                check_value = parse_string_value(check_value)
+            elif isinstance(check_item, str) and check_item:
                 check_value = self._search_jmespath(check_item)
             else:
                 # variable or function evaluation result is "" or not text
