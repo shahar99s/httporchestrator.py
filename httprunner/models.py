@@ -118,6 +118,7 @@ class TConfig(BaseModel):
     name: Name
     verify: Verify = False
     base_url: BaseUrl = ""
+    add_request_id: bool = True
     # Text: prepare variables in debugtalk.py, ${gen_variables()}
     variables: Union[VariablesMapping, Text] = {}
     parameters: Union[VariablesMapping, Text] = {}
