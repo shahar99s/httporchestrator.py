@@ -115,6 +115,10 @@ class Config(object):
         self.__config.verify = verify
         return self
 
+    def add_request_id(self, add_request_id: bool) -> "Config":
+        self.__config.add_request_id = add_request_id
+        return self
+
     def export(self, *export_var_name: Text) -> "Config":
         self.__config.export.extend(export_var_name)
         self.__config.export = list(set(self.__config.export))

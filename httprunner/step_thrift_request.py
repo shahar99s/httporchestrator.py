@@ -95,10 +95,11 @@ def run_step_thrift_request(runner: HttpRunner, step: TStep) -> StepResult:
     )
     parsed_request_dict["thrift_client"] = parsed_request_dict["thrift_client"]
 
-    # parsed_request_dict["headers"].setdefault(
-    #     "HRUN-Request-ID",
-    #     f"HRUN-{self.__case_id}-{str(int(time.time() * 1000))[-6:]}",
-    # )
+    # if runner.config.add_request_id:
+    #   parsed_request_dict["headers"].setdefault(
+    #       "HRUN-Request-ID",
+    #       f"HRUN-{self.__case_id}-{str(int(time.time() * 1000))[-6:]}",
+    #   )
     step_variables["thrift_request"] = parsed_request_dict
 
     psm = parsed_request_dict["psm"]
