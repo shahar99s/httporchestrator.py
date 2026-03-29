@@ -61,6 +61,11 @@ hmake = "httprunner.cli:main_make_alias"
 requires = ["poetry>=1.0.0"]
 build-backend = "poetry.masonry.api"
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests that require network access and live service credentials (deselect with '-m not integration')",
+]
+
 [[tool.poetry.source]]
 name = "tsinghua"
 url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
