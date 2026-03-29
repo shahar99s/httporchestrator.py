@@ -65,7 +65,12 @@ def _smash_create_account(region: str, headers: dict) -> str:
     )
     resp.raise_for_status()
     data = resp.json()
-    account = data.get("account") or data.get("identity") or data
+    # The Smash IAM API wraps the account under "account" or "identity"; if neither
+    # key is present (older API versions return the payload directly), fall back to
+    # the top-level dict — but only when it actually contains a "token" key.
+    account = data.get("account") or data.get("identity")
+    if account is None:
+        account = data if "token" in data else {}
     token = (account.get("token") or {}).get("token")
     if not token:
         raise RuntimeError(f"Smash account creation did not return a token: {data}")

@@ -75,7 +75,10 @@ def _upload_to_wetransfer(
     resp.raise_for_status()
     transfer_data = resp.json()
     transfer_id = transfer_data["id"]
-    file_info = transfer_data["files"][0]
+    files = transfer_data.get("files") or []
+    if not files:
+        raise RuntimeError(f"WeTransfer create transfer returned no files: {transfer_data}")
+    file_info = files[0]
     file_id = file_info["id"]
     upload_url = file_info["multipart"]["url"]
 

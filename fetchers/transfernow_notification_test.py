@@ -89,7 +89,9 @@ def _upload_to_transfernow(
     complete_resp.raise_for_status()
 
     complete_data = complete_resp.json()
-    download_url = complete_data.get("url") or data.get("url")
+    # The download URL is returned in the complete response; fall back to the create
+    # response only as a last resort since some API versions embed it there too.
+    download_url = complete_data.get("url") or complete_data.get("data", {}).get("url")
     if not download_url:
         raise RuntimeError(
             f"TransferNow complete did not return a download URL: {complete_data}"

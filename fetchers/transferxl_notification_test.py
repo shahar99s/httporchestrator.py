@@ -61,12 +61,12 @@ def _upload_to_transferxl(
     # the same alphanumeric code used in the public download URL and in API calls that
     # accept a shortUrl parameter — so it is a valid stand-in for the transfer ID.
     transfer_id = data.get("id") or data.get("shortUrl")
-    files = data.get("files") or [{}]
-    upload_url = data.get("uploadUrl") or files[0].get("uploadUrl")
     if not transfer_id:
         raise RuntimeError(
             f"TransferXL create transfer did not return a transfer id: {data}"
         )
+    files = data.get("files") or []
+    upload_url = data.get("uploadUrl") or (files[0].get("uploadUrl") if files else None)
     if not upload_url:
         raise RuntimeError(
             f"TransferXL create transfer did not return an upload URL: {data}"
