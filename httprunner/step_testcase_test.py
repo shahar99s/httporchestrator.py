@@ -3,6 +3,7 @@ import unittest
 from httprunner import Config
 from httprunner.runner import HttpRunner
 from httprunner.step_workflow import RunWorkflow
+from httprunner.test_utils import postman_echo_available
 from examples.postman_echo.request_methods.request_with_functions_test import (
     WorkflowRequestWithFunctions,
 )
@@ -22,6 +23,8 @@ class InspectReferencedCase(HttpRunner):
 
 class TestRunWorkflow(unittest.TestCase):
     def setUp(self):
+        if not postman_echo_available():
+            self.skipTest("external postman-echo service is unavailable")
         self.runner = WorkflowRequestWithFunctions()
         self.runner.run()
 

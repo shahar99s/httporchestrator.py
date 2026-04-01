@@ -1,5 +1,6 @@
 import unittest
 
+from httprunner.test_utils import postman_echo_available
 from examples.postman_echo.request_methods.request_with_functions_test import (
     WorkflowRequestWithFunctions,
 )
@@ -7,6 +8,8 @@ from examples.postman_echo.request_methods.request_with_functions_test import (
 
 class TestRunRequest(unittest.TestCase):
     def test_run_request(self):
+        if not postman_echo_available():
+            self.skipTest("external postman-echo service is unavailable")
         runner = WorkflowRequestWithFunctions().run()
         summary = runner.get_summary()
         self.assertTrue(summary.success)
