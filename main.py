@@ -1,6 +1,7 @@
 from fetchers.dropbox_transfer_fetcher import DropboxTransferFetcherFactory
 from fetchers.sendgb_fetcher import SendgbFetcherFactory
 from fetchers.filemail_fetcher import FilemailFetcherFactory
+from fetchers.limewire_fetcher import LimeWireFetcherFactory
 from fetchers.mega_fetcher import MegaFetcherFactory
 from fetchers.mediafire_fetcher import MediaFireFetcherFactory
 from fetchers.sendanywhere_fetcher import SendAnywhereFetcherFactory
