@@ -1,6 +1,6 @@
 # httporchestrator
 
-`httporchestrator` is a small library for explicit multi-step HTTP flows with a single shared state.
+`httporchestrator` is a small library for explicit multi-step HTTP flows with a single shared state heavily inspired by `https://github.com/httprunner/httprunner.py`.
 
 ## Public API
 
