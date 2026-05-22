@@ -56,7 +56,6 @@ Callback contracts:
 - `.before(fn)` takes `state` and must return a mapping or `None`.
 - `.after(fn)` takes `response, state` and must return a mapping or `None`.
 - `.capture(name, fn)` saves one named value into state.
-- `.after(fn)` takes `response, state` and must return `None`.
 - `.check(fn, message="")` raises `ValidationFailure` when the assertion returns `False` or throws.
 
 ## Nested and Conditional Flows
