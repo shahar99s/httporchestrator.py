@@ -48,7 +48,7 @@ assert run.exported["saved_foo"] == "bar"
 2. `.before(fn)` callbacks can update request-time state.
 3. RequestStep URL, headers, params, body, and JSON are resolved.
 4. The HTTP request is sent.
-5. `.capture(...)`, `.after(fn)`, `.after(fn)`, and `.check(...)` run in order.
+5. `.capture(...)`, `.after(fn)`, and `.check(...)` run in order.
 6. The produced state updates are merged back into the flow state.
 
 Callback contracts:
@@ -56,7 +56,6 @@ Callback contracts:
 - `.before(fn)` takes `state` and must return a mapping or `None`.
 - `.after(fn)` takes `response, state` and must return a mapping or `None`.
 - `.capture(name, fn)` saves one named value into state.
-- `.after(fn)` takes `response, state` and must return `None`.
 - `.check(fn, message="")` raises `ValidationFailure` when the assertion returns `False` or throws.
 
 ## Nested and Conditional Flows
