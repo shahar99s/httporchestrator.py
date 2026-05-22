@@ -1,0 +1,139 @@
+name: release
+run-name: Release ${{ github.ref_name }}
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+a[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+b[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+a[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+b[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+
+env:
+  PACKAGE_NAME: "httporchestrator"
+
+permissions:
+  contents: read
+
+jobs:
+  details:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.release.outputs.new_version }}
+      suffix: ${{ steps.release.outputs.suffix }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract tag details
+        id: release
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          NEW_VERSION=${TAG_NAME#v}   # strips leading 'v' if present, no-op otherwise
+          SUFFIX=$(echo "$NEW_VERSION" | grep -oP '[a-z]+[0-9]+$' || echo "")
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "suffix=$SUFFIX" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "Version: $NEW_VERSION | Suffix: $SUFFIX | Tag: $TAG_NAME"
+
+  check_pypi:
+    needs: details
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch current version from PyPI
+        run: |
+          response=$(curl -s https://pypi.org/pypi/${{ env.PACKAGE_NAME }}/json || echo "{}")
+          latest=$(echo "$response" | jq --raw-output ".info.version // empty")
+          if [ -z "$latest" ] || [ "$latest" = "null" ]; then
+            echo "Package not found on PyPI — treating as first publish."
+            latest="0.0.0"
+          fi
+          echo "Latest PyPI version: $latest"
+          echo "latest_version=$latest" >> "$GITHUB_ENV"
+
+      - name: Fail if new version is not newer
+        run: |
+          NEW=${{ needs.details.outputs.new_version }}
+          LATEST=$latest_version
+          if [ "$(printf '%s\n' "$LATEST" "$NEW" | sort -rV | head -n1)" != "$NEW" ] || [ "$NEW" = "$LATEST" ]; then
+            echo "::error::$NEW is not newer than the current PyPI version $LATEST"
+            exit 1
+          fi
+          echo "$NEW is newer than $LATEST — proceeding."
+
+  build:
+    needs: [details, check_pypi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Set project version
+        run: poetry version ${{ needs.details.outputs.new_version }}
+
+      - name: Install dependencies
+        run: poetry install --sync --no-interaction
+
+      - name: Build distributions
+        run: poetry build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  pypi_publish:
+    name: Publish to PyPI
+    needs: [details, build]
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      id-token: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github_release:
+    name: Create GitHub Release
+    needs: [details, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create ${{ needs.details.outputs.tag_name }} dist/* \
+            --title "${{ needs.details.outputs.tag_name }}" \
+            --generate-notes
