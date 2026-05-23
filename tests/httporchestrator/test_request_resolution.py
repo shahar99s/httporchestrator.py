@@ -63,3 +63,25 @@ def test_build_url_keeps_absolute_url():
         build_url("https://example.com/api", "https://other.example/path")
         == "https://other.example/path"
     )
+
+
+def test_header_lambda_failure_raises_parameter_error_with_key_name():
+    context = build_context(base_url="https://example.com")
+    step = RequestStep("broken").get("/path").headers(
+        Authorization=lambda state: f"Bearer {state['missing_token']}"
+    )
+    state = context.build_state_snapshot(step.state_values)
+
+    with pytest.raises(ParameterError, match="header 'Authorization'"):
+        resolve_request_data(step, context, state)
+
+
+def test_param_lambda_failure_raises_parameter_error_with_key_name():
+    context = build_context(base_url="https://example.com")
+    step = RequestStep("broken").get("/path").params(
+        page=lambda state: state["no_such_page"]
+    )
+    state = context.build_state_snapshot(step.state_values)
+
+    with pytest.raises(ParameterError, match="param 'page'"):
+        resolve_request_data(step, context, state)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, Mapping
+from typing import Any, Callable, Dict, Mapping, Optional
 
 import httpx
 
@@ -77,6 +77,10 @@ class StepResult:
     state_updates: VariablesMapping = field(default_factory=dict)
     attachment: str = ""
 
+    @property
+    def skipped(self) -> bool:
+        return self.attachment == "skipped(when)"
+
 
 @dataclass
 class WorkflowSummary:
@@ -99,3 +103,12 @@ class WorkflowRun:
     @property
     def success(self) -> bool:
         return self.summary.success
+
+    @property
+    def variables(self) -> VariablesMapping:
+        """All flow variables after execution (alias for session_variables)."""
+        return self.session_variables
+
+    def find_step(self, name: str) -> "StepResult | None":
+        """Return the first StepResult with the given name, or None if not found."""
+        return next((r for r in self.step_results if r.name == name), None)
