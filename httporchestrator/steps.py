@@ -105,9 +105,6 @@ class RequestStep:
             self, captures=self.captures + (CaptureAction(name=name, fn=fn),)
         )
 
-    def after(self, fn: HandleHook) -> "RequestStep":
-        return replace(self, after_hooks=self.after_hooks + (fn,))
-
     def check(self, fn, message: str = "") -> "RequestStep":
         return replace(
             self, assertions=self.assertions + (Assertion(fn=fn, message=message),)
@@ -123,6 +120,26 @@ class RequestStep:
             self,
             retry_policy=RetryPolicy(times=times, interval=interval, retry_on=retry_on),
         )
+
+    def after(self, fn: HandleHook) -> "RequestStep":
+        """Register a callback invoked after the response is received.
+
+        fn(response, state) must return a mapping (merged into flow variables) or None.
+        Returning anything else raises ParameterError at runtime.
+        """
+        return replace(self, after_hooks=self.after_hooks + (fn,))
+
+    def when(self, predicate: PredicateHook) -> "ConditionalStep":
+        """Wrap this step in a ConditionalStep that only runs when predicate returns True."""
+        return ConditionalStep(step=self, predicate=predicate)
+
+    def while_(self, predicate: PredicateHook) -> "RepeatableStep":
+        """Wrap this step in a RepeatableStep that loops while predicate returns True."""
+        return RepeatableStep(step=self, predicate=predicate)
+
+    def for_each(self, variable: str) -> "ForEachStep":
+        """Wrap this step in a ForEachStep that runs once per item in a list variable."""
+        return ForEachStep(step=self, variable=variable)
 
     def require_method(self) -> HttpMethod:
         if self.method is None:
@@ -154,3 +171,31 @@ class RepeatableStep:
 
     def run_while(self, predicate: PredicateHook) -> "RepeatableStep":
         return replace(self, predicate=predicate)
+
+
+@dataclass(frozen=True)
+class ForEachStep:
+    """Execute a step once for each item in a list-valued state variable.
+
+    The current item is bound to `item_var` (default: "item") in state before
+    each iteration, making it available to callable fields on the inner step.
+
+    Example::
+
+        ForEachStep(
+            RequestStep("download").get(lambda s: s["item"]),
+            "urls",
+        )
+    """
+
+    step: object
+    variable: str
+    item_var: str = "item"
+
+    @property
+    def name(self) -> str:
+        return getattr(self.step, "name", "for_each")
+
+    def bind_as(self, item_var: str) -> "ForEachStep":
+        """Override the state key the current item is bound to (default: 'item')."""
+        return replace(self, item_var=item_var)

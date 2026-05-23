@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, Mapping
+from typing import Any, Callable, Dict, Mapping, Optional
 
 import httpx
 
@@ -10,9 +10,11 @@ VariablesMapping = Dict[str, Any]
 Headers = Dict[str, str]
 Cookies = Dict[str, str]
 
+AfterResult = Optional[Mapping[str, Any]]
+
 PrepareHook = Callable[[VariablesMapping], Mapping[str, Any] | None]
 CaptureHook = Callable[[Any, VariablesMapping], Any]
-HandleHook = Callable[[Any, VariablesMapping], Mapping[str, Any] | None]
+HandleHook = Callable[[Any, VariablesMapping], AfterResult]
 EffectHook = Callable[[Any, VariablesMapping], None]
 AssertHook = Callable[[Any, VariablesMapping], bool | None]
 PredicateHook = Callable[[VariablesMapping], bool]
@@ -75,6 +77,10 @@ class StepResult:
     state_updates: VariablesMapping = field(default_factory=dict)
     attachment: str = ""
 
+    @property
+    def skipped(self) -> bool:
+        return self.attachment == "skipped(when)"
+
 
 @dataclass
 class WorkflowSummary:
@@ -97,3 +103,12 @@ class WorkflowRun:
     @property
     def success(self) -> bool:
         return self.summary.success
+
+    @property
+    def variables(self) -> VariablesMapping:
+        """All flow variables after execution (alias for session_variables)."""
+        return self.session_variables
+
+    def find_step(self, name: str) -> "StepResult | None":
+        """Return the first StepResult with the given name, or None if not found."""
+        return next((r for r in self.step_results if r.name == name), None)

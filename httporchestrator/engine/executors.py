@@ -10,7 +10,7 @@ from httporchestrator.exceptions import ParameterError, ValidationFailure
 from httporchestrator.models import StepResult
 from httporchestrator.recording.models import RequestMetrics, RequestSession
 from httporchestrator.response import Response
-from httporchestrator.steps import ConditionalStep, RepeatableStep, RequestStep
+from httporchestrator.steps import ConditionalStep, ForEachStep, RepeatableStep, RequestStep
 
 
 def describe_step_type(step) -> str:
@@ -22,6 +22,8 @@ def describe_step_type(step) -> str:
         return describe_step_type(step.step)
     if isinstance(step, RepeatableStep):
         return "repeat"
+    if isinstance(step, ForEachStep):
+        return "for-each"
     raise RuntimeError(f"unsupported step type: {type(step)!r}")
 
 
@@ -222,6 +224,43 @@ class RepeatableStepExecutor:
             name=step.name,
             step_type="repeat",
             success=True,
+            data=child_results,
+            state_updates=state_updates,
+        )
+
+
+class ForEachStepExecutor:
+    step_type = ForEachStep
+
+    def execute(self, step: ForEachStep, context, engine) -> StepResult:
+        template = step.step
+        items = context.state.get(step.variable)
+        if items is None:
+            raise ParameterError(
+                f"ForEachStep '{step.name}': variable '{step.variable}' is not in state"
+            )
+        if not isinstance(items, (list, tuple)):
+            raise ParameterError(
+                f"ForEachStep '{step.name}': variable '{step.variable}' must be a list,"
+                f" got {type(items).__name__}"
+            )
+
+        child_results = []
+        state_updates = {}
+
+        for item in items:
+            context.state[step.item_var] = item
+            child_result = engine.execute_nested_step(template, context)
+            context.apply_step_result(child_result)
+            child_results.append(child_result)
+            state_updates.update(child_result.state_updates)
+
+        context.state.pop(step.item_var, None)
+
+        return StepResult(
+            name=step.name,
+            step_type="for-each",
+            success=all(r.success for r in child_results) if child_results else True,
             data=child_results,
             state_updates=state_updates,
         )
