@@ -4,6 +4,7 @@ from httporchestrator import (
     CallFlow,
     ConditionalStep,
     Flow,
+    ForEachStep,
     RepeatableStep,
     RequestStep,
 )
@@ -76,3 +77,61 @@ def test_repeat_wraps_inner_step():
 
     assert wrapped.name == "loop"
     assert wrapped.step.name == "loop"
+
+
+def test_when_fluent_method_wraps_in_conditional_step():
+    predicate = lambda state: state.get("flag") is True
+    step = RequestStep("guarded").get("/path")
+    conditional = step.when(predicate)
+
+    assert isinstance(conditional, ConditionalStep)
+    assert conditional.name == "guarded"
+    assert conditional.step is step
+    assert conditional.predicate is predicate
+
+
+def test_when_is_independent_of_run_when():
+    step = RequestStep("guarded").get("/path")
+    pred_a = lambda state: True
+    pred_b = lambda state: False
+
+    via_when = step.when(pred_a)
+    via_run_when = ConditionalStep(step).run_when(pred_b)
+
+    assert via_when.predicate is pred_a
+    assert via_run_when.predicate is pred_b
+
+
+def test_for_each_step_builder():
+    template = RequestStep("fetch").get(lambda s: f"/items/{s['item']}")
+    step = ForEachStep(template, "urls").bind_as("url")
+
+    assert step.name == "fetch"
+    assert step.variable == "urls"
+    assert step.item_var == "url"
+    assert step.step is template
+
+
+def test_while_fluent_method_wraps_in_repeatable_step():
+    predicate = lambda state: state.get("count", 0) < 3
+    step = RequestStep("loop").get("/path")
+    repeatable = step.while_(predicate)
+
+    assert isinstance(repeatable, RepeatableStep)
+    assert repeatable.name == "loop"
+    assert repeatable.step is step
+    assert repeatable.predicate is predicate
+
+
+def test_for_each_fluent_method_wraps_in_for_each_step():
+    step = RequestStep("fetch").get(lambda s: f"/items/{s['item']}")
+    foreach = step.for_each("ids")
+
+    assert isinstance(foreach, ForEachStep)
+    assert foreach.name == "fetch"
+    assert foreach.step is step
+    assert foreach.variable == "ids"
+
+
+def test_after_docstring_states_contract():
+    assert "mapping" in (RequestStep.after.__doc__ or "").lower()

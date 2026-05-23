@@ -8,6 +8,7 @@ from httporchestrator.engine.context import ExecutionContext
 from httporchestrator.engine.executors import (
     CallFlowExecutor,
     ConditionalStepExecutor,
+    ForEachStepExecutor,
     RepeatableStepExecutor,
     RequestExecutor,
 )
@@ -27,6 +28,7 @@ class WorkflowEngine:
             CallFlowExecutor(self._workflow_logger),
             ConditionalStepExecutor(self._workflow_logger),
             RepeatableStepExecutor(),
+            ForEachStepExecutor(),
         ):
             self._executors[executor.step_type] = executor
 

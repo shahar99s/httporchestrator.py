@@ -5,6 +5,7 @@ from httporchestrator import (
     CallFlow,
     ConditionalStep,
     Flow,
+    ForEachStep,
     ParameterError,
     RepeatableStep,
     RequestStep,
@@ -417,3 +418,194 @@ def test_retry_does_not_retry_validation_failures_by_default():
         WorkflowEngine().run(flow, client=client)
 
     assert attempts["count"] == 1
+
+
+# --- ForEachStep integration ---
+
+
+def test_for_each_step_runs_template_for_every_item():
+    flow = Flow(
+        name="batch",
+        base_url="https://example.com",
+        steps=(
+            ForEachStep(
+                RequestStep("fetch-item")
+                .get(lambda s: f"/items/{s['item']}")
+                .capture("last_id", lambda response, state: response.json()["id"]),
+                "ids",
+            ),
+        ),
+    ).state(ids=[1, 2, 3]).export(["last_id"])
+
+    client = make_client(
+        {
+            ("GET", "https://example.com/items/1"): httpx.Response(
+                200, json={"id": 1}, request=httpx.Request("GET", "https://example.com/items/1")
+            ),
+            ("GET", "https://example.com/items/2"): httpx.Response(
+                200, json={"id": 2}, request=httpx.Request("GET", "https://example.com/items/2")
+            ),
+            ("GET", "https://example.com/items/3"): httpx.Response(
+                200, json={"id": 3}, request=httpx.Request("GET", "https://example.com/items/3")
+            ),
+        }
+    )
+
+    run = WorkflowEngine().run(flow, client=client)
+
+    assert run.success is True
+    assert len(run.step_results[0].data) == 3
+    assert run.exported["last_id"] == 3
+
+
+def test_for_each_step_empty_list_succeeds_with_no_child_results():
+    flow = Flow(
+        name="empty-batch",
+        base_url="https://example.com",
+        steps=(
+            ForEachStep(RequestStep("fetch-item").get(lambda s: f"/items/{s['item']}"), "ids"),
+        ),
+    ).state(ids=[])
+
+    run = WorkflowEngine().run(flow, client=make_client({}))
+
+    assert run.success is True
+    assert run.step_results[0].data == []
+
+
+def test_for_each_step_raises_when_variable_missing():
+    flow = Flow(
+        name="missing-var",
+        base_url="https://example.com",
+        steps=(
+            ForEachStep(RequestStep("fetch-item").get("/items"), "no_such_var"),
+        ),
+    )
+
+    with pytest.raises(ParameterError, match="no_such_var"):
+        WorkflowEngine().run(flow, client=make_client({}))
+
+
+def test_for_each_step_bind_as_changes_item_key():
+    flow = Flow(
+        name="custom-bind",
+        base_url="https://example.com",
+        steps=(
+            ForEachStep(
+                RequestStep("fetch-item")
+                .get(lambda s: s["url"])
+                .capture("last_url", lambda response, state: response.json()["url"]),
+                "urls",
+            ).bind_as("url"),
+        ),
+    ).state(urls=["https://example.com/a"]).export(["last_url"])
+
+    client = make_client(
+        {
+            ("GET", "https://example.com/a"): httpx.Response(
+                200,
+                json={"url": "https://example.com/a"},
+                request=httpx.Request("GET", "https://example.com/a"),
+            )
+        }
+    )
+
+    run = WorkflowEngine().run(flow, client=client)
+
+    assert run.exported["last_url"] == "https://example.com/a"
+    assert "url" not in run.session_variables
+
+
+# --- WorkflowRun introspection ---
+
+
+def test_workflow_run_variables_aliases_session_variables():
+    flow = Flow(
+        name="alias",
+        base_url="https://example.com",
+        steps=(
+            RequestStep("load")
+            .get("/items")
+            .capture("token", lambda response, state: response.json()["token"]),
+        ),
+    )
+
+    client = make_client(
+        {
+            ("GET", "https://example.com/items"): httpx.Response(
+                200,
+                json={"token": "xyz"},
+                request=httpx.Request("GET", "https://example.com/items"),
+            )
+        }
+    )
+
+    run = WorkflowEngine().run(flow, client=client)
+
+    assert run.variables is run.session_variables
+    assert run.variables["token"] == "xyz"
+
+
+def test_workflow_run_find_step_returns_result_by_name():
+    flow = Flow(
+        name="find",
+        base_url="https://example.com",
+        steps=(
+            RequestStep("load").get("/items"),
+            RequestStep("save").get("/other"),
+        ),
+    )
+
+    client = make_client(
+        {
+            ("GET", "https://example.com/items"): httpx.Response(
+                200, json={}, request=httpx.Request("GET", "https://example.com/items")
+            ),
+            ("GET", "https://example.com/other"): httpx.Response(
+                200, json={}, request=httpx.Request("GET", "https://example.com/other")
+            ),
+        }
+    )
+
+    run = WorkflowEngine().run(flow, client=client)
+
+    assert run.find_step("load") is run.step_results[0]
+    assert run.find_step("save") is run.step_results[1]
+    assert run.find_step("nonexistent") is None
+
+
+def test_step_result_skipped_property():
+    flow = Flow(
+        name="skip-check",
+        base_url="https://example.com",
+        steps=(
+            RequestStep("always-skip").get("/file").when(lambda state: False),
+        ),
+    )
+
+    run = WorkflowEngine().run(flow, client=make_client({}))
+
+    result = run.find_step("always-skip")
+    assert result is not None
+    assert result.skipped is True
+    assert run.step_results[0].skipped is True
+
+
+def test_step_result_skipped_false_for_executed_steps():
+    flow = Flow(
+        name="ran",
+        base_url="https://example.com",
+        steps=(RequestStep("load").get("/items"),),
+    )
+
+    client = make_client(
+        {
+            ("GET", "https://example.com/items"): httpx.Response(
+                200, json={}, request=httpx.Request("GET", "https://example.com/items")
+            )
+        }
+    )
+
+    run = WorkflowEngine().run(flow, client=client)
+
+    assert run.step_results[0].skipped is False

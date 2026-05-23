@@ -10,9 +10,11 @@ VariablesMapping = Dict[str, Any]
 Headers = Dict[str, str]
 Cookies = Dict[str, str]
 
+AfterResult = Optional[Mapping[str, Any]]
+
 PrepareHook = Callable[[VariablesMapping], Mapping[str, Any] | None]
 CaptureHook = Callable[[Any, VariablesMapping], Any]
-HandleHook = Callable[[Any, VariablesMapping], Mapping[str, Any] | None]
+HandleHook = Callable[[Any, VariablesMapping], AfterResult]
 EffectHook = Callable[[Any, VariablesMapping], None]
 AssertHook = Callable[[Any, VariablesMapping], bool | None]
 PredicateHook = Callable[[VariablesMapping], bool]
